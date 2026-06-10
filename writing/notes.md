@@ -38,3 +38,12 @@ This API lets you play around with requests and see the output. Really helpful f
 
 Filter SNOTEL variables via vars available from PRISM/MACA - Claude rec. So, TMAX, TMIN, PREC
 
+## 6/10/26
+Found an incredible thesis from an MSU student who used machine learning to predict SWE and Snow Depth in the Beartooths. Need to figure out who her advisor was. She also used an ensemble of models (XGBoost, LightBoost, and CatBoost) to improve error. Might be worth looking into.
+
+Kling-Gupta scores for assessing hydrologic model performance
+
+metloom for SNOTEL access? see Alabi et al.'s GitHub
+- snowmodels.utils
+
+Given the time I have, I think leaving hyperparameter tuning, error stats and potentially ML ensembles out will likely be a good idea.

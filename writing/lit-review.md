@@ -1,6 +1,22 @@
 # Running Literature Review
 
-## Jennings, K.S., Winchell, T.S., Livneh, B., & Molotch, N.P. (2018). Spatial variation of the rain–snow temperature threshold across the Northern Hemisphere
+## Jennings, K. S., Winchell, T. S., Livneh, B., & Molotch, N. P. (2018). Spatial variation of the rain-snow temperature threshold across the Northern Hemisphere. Nature Communications, 9(1), 1148. https://doi.org/10.1038/s41467-018-03629-7
 
 
-## Siirila-Woodburn, E.R., et al. (2021). A low-to-no snow future and its impacts on water resources in the western United States.
+## Siirila-Woodburn, E. R., Rhoades, A. M., Hatchett, B. J., Huning, L. S., Szinai, J., Tague, C., Nico, P. S., Feldman, D. R., Jones, A. D., Collins, W. D., & Kaatz, L. (2021). A low-to-no snow future and its impacts on water resources in the western United States. Nature Reviews Earth & Environment, 2(11), 800–819. https://doi.org/10.1038/s43017-021-00219-y
+
+
+## Molotch, N. P., & Bales, R. C. (2005). Scaling snow observations from the point to the grid element: Implications for observation network design. Water Resources Research, 41(11). https://doi.org/10.1029/2005WR004229
+
+
+## Harpold, A. A., & Brooks, P. D. (2018). Humidity determines snowpack ablation under a warming climate. Proceedings of the National Academy of Sciences, 115(6), 1215–1220. https://doi.org/10.1073/pnas.1716789115
+
+
+## Daly, C., Halbleib, M., Smith, J. I., Gibson, W. P., Doggett, M. K., Taylor, G. H., Curtis, J., & Pasteris, P. P. (2008). Physiographically sensitive mapping of climatological temperature and precipitation across the conterminous United States. International Journal of Climatology, 28(15), 2031–2064. https://doi.org/10.1002/joc.1688
+
+
+## O’Flaherty, M. (2025). ADVANCED MACHINE LEARNING APPLICATIONS FOR SNOWPACK AND SWE PREDICTION IN THE ABSAROKA–BEARTOOTH WILDERNESS, MONTANA [Master of Science, Montana State University]. https://scholarworks.montana.edu/server/api/core/bitstreams/9947cdce-776a-484e-a108-b5b82093cd04/content
+Impressive thesis from my neck of the woods. O'Flaherty uses an impressive set of datasets and ML methods to predict SWE and snowpack extent in the Absaroka-Beartooth Wilderness, adjacent to my study area. She uses: PRISM, NOAA HRRR, SNOTEL, DEM, and Sentinel-2 observations as datasources for an ensemble of Gradient Boosting algorithms to predict SWE and Snow Depth. The thesis used XGBoost, LightBoost, and CatBoost, and averaged the results of the three; the author highlighted the strengths and weaknesses of each algorithm. I like this approach a lot. She used WY (Water Year) 2020-2024, and extended to WY 2030 in her study; one drawback she noted was a lack of truly deep winters in this record. Nice reason to go with an earlier and longer dataset - I was thinking of 1980-2010 or similar. O'Flaherty also used more variables than I plan to (such as shortwave radation) and highlighted issues derived from the 1km grid spacing of PRISM. This is worth considering as I plan to use 1km and 4km grids from PRISM and MACA.
+
+## Alabi, I. O., Marshall, H.-P., Mead, J., & Trujillo, E. (2026). A Machine Learning Model for Estimating Snow Density and Snow Water Equivalent from Snow Depth and Seasonal Snow Climate Classes. Artificial Intelligence for the Earth Systems, 5(2). https://doi.org/10.1175/AIES-D-25-0021.1
+Interesting paper on using ML to predict Snow Depth (not SWE). Authors highlight the difference between SWE and Depth, which is worth considering. Few things I liked right away in the paper: model can predict SD at any day - they use day of water year (DOWY); they use lat/lon as a stand-in for variations like radiation (I think this means that the model can say lat/lon explained x% of the variation without actually needing radiation numbers). Authors highlighted some limitations with PRISM and DayMet (coarse, might require bias-correction). Found that a 7-day rolling window of average T and P performed best in the models. _Perhaps I roll with a 7-day window and point to this study as the reasoning?_ They used following models: random forests, extremely randomized trees (ExtraTrees), LightGBM (LightBoost?), and XGBoost. Error stats: RMSE, Mean Bias Error, R^2. "As a result, snow density tends to fall within a predictable range, between 0.05 g cm−3 for fresh snow and 0.60 g cm−3 for older snow" DOWY is a proxy for different processes that change as winter progressed (melt-freeze, prolonged cold snap, etc). They applied their model to a Maine SNOTEL dataset and found good accuracy w/o any retraining, improved by retraining on Maine data but no change to hyperparameter tuning.
