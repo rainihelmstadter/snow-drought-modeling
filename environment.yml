@@ -1,0 +1,20 @@
+name: snow-drought-modeling
+channels:
+- conda-forge
+- defaults
+
+dependencies:
+- python=#check version!
+- os
+- pathlib
+- pandas
+- geopandas
+- xarray
+- rioxarray
+- holoviews
+- hvplot
+- tqdm
+- pygeohydro
+- matplotlib
+- shapely
+- scikit-learn
