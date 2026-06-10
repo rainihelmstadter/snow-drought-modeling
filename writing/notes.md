@@ -47,3 +47,5 @@ metloom for SNOTEL access? see Alabi et al.'s GitHub
 - snowmodels.utils
 
 Given the time I have, I think leaving hyperparameter tuning, error stats and potentially ML ensembles out will likely be a good idea.
+
+When pulling data using watershed boundaries, make sure to leave a buffer so that pixels/sites on the edge don't get left out
