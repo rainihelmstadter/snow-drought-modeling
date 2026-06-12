@@ -49,3 +49,14 @@ metloom for SNOTEL access? see Alabi et al.'s GitHub
 Given the time I have, I think leaving hyperparameter tuning, error stats and potentially ML ensembles out will likely be a good idea.
 
 When pulling data using watershed boundaries, make sure to leave a buffer so that pixels/sites on the edge don't get left out
+
+
+## 6/12
+
+Got the sites filtered with a buffered and clipped boundary!
+Snotel Station Triplets: 
+916:MT:SNTL ,  318:MT:SNTL ,  328:MT:SNTL ,  347:MT:SNTL ,  355:MT:SNTL ,  365:MT:SNTL ,  381:MT:SNTL ,  385:MT:SNTL ,  403:MT:SNTL ,  436:MT:SNTL ,  448:MT:SNTL ,  487:MT:SNTL ,  1287:MT:SNTL ,  568:MT:SNTL ,  578:MT:SNTL ,  590:MT:SNTL ,  603:MT:SNTL ,  609:MT:SNTL ,  656:MT:SNTL ,  722:MT:SNTL ,  929:MT:SNTL ,  753:MT:SNTL ,  754:MT:SNTL ,  1286:MT:SNTL ,  813:MT:SNTL ,  924:MT:SNTL ,  858:MT:SNTL ,  384:WY:SNTL 
+
+Can query a set beginning date (i.e. 10/01/1990) and the SNOTEL API will return anything past that
+
+Redo notebooks. Make notebook 1 just site selection and SNOTEL download. Notebook 2 DEM, PRISM access (maybe make that two notebooks even?). Start working on using SRC for funcs with climate stuff and DEM.

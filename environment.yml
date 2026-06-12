@@ -13,8 +13,10 @@ dependencies:
 - rioxarray
 - holoviews
 - hvplot
+- time
 - tqdm
 - pygeohydro
+- pyarrow
 - matplotlib
 - shapely
 - scikit-learn
