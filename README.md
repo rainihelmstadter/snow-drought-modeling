@@ -15,7 +15,7 @@ This project will use machine learning to model snow-water equivalent across the
 
 ### Instructions
 
-Use the environment.yml file to create a Python environment suitable for working through the notebooks. The file will be updated as the project progresses. In future releases, the repository will move to an src architecture.
+Use the environment.yml file to create a Python environment suitable for working through the notebooks. Notebooks are numbered in the order they should be used. Note: the file structure listed for the data directories is applicable to my machines; you may want to update to fit yours. The file will be updated as the project progresses. In future releases, the repository will move to an src architecture.
 
 ### Citations
 
