@@ -60,3 +60,14 @@ Snotel Station Triplets:
 Can query a set beginning date (i.e. 10/01/1990) and the SNOTEL API will return anything past that
 
 Redo notebooks. Make notebook 1 just site selection and SNOTEL download. Notebook 2 DEM, PRISM access (maybe make that two notebooks even?). Start working on using SRC for funcs with climate stuff and DEM.
+
+## 6/16
+
+PRISM has multiple tiers of data. Free version is 4km grid (matches MACA - nice!; that's what they call 2.5minute). I'll want to use AN91d products. That's AN-all networks (best spatial estimate, sacrifices temporal consistency), 91-1991-2020 climatologies, d-daily timestep.
+
+PRISM rasters are not accessible using a geospatial filter - I have to download the whole country and then clip out my study area post-download. Tough. However, there is a [point location download tool](https://prism.oregonstate.edu/explorer/bulk.php) as well, so I can use that for the training dataset at least. It has a couple of requirements:
+- No more than 12 months for training data
+- No more than 500 points
+- Points must be formatted in a csv as described on the 
+
+Doesn't look like the point downloader will work - I'll need to just do the bulk download and then mask from there.

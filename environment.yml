@@ -13,6 +13,7 @@ dependencies:
 - rioxarray
 - holoviews
 - hvplot
+- requests
 - time
 - tqdm
 - pygeohydro
@@ -20,3 +21,8 @@ dependencies:
 - matplotlib
 - shapely
 - scikit-learn
+
+# Use pip to install src folder
+- pip
+- pip:
+  - -e
