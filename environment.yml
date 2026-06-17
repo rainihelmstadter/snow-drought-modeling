@@ -21,6 +21,7 @@ dependencies:
 - matplotlib
 - shapely
 - scikit-learn
+- pyPRISMclimate
 
 # Use pip to install src folder
 - pip
