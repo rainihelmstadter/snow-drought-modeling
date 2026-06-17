@@ -137,3 +137,30 @@ def get_prism_for_stations(stations_gdf, wy_dates, variables):
     # Concat results into one big DF
     sntl_prism = pd.concat(results, ignore_index = True)
     return sntl_prism
+
+#----------------------------------------------------------------
+
+def make_prism_urls(wy_dates, variables):
+    '''
+    Define a set of urls to download PRISM rasters.
+
+    Args:
+    -----
+    wy_dates (list):
+        List of dates desired for download
+    variables (list):
+        List of desired variables
+
+    Returns:
+    --------
+    prism_urls (list):
+        List of valid urls
+    '''
+
+    # define base url
+    url = 'http://services.nacse.org/prism/data/get/us/4km/'
+
+def get_prism_rasters(prism_urls, download_dir):
+    '''
+    Download PRISM rasters
+    '''
