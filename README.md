@@ -1,6 +1,6 @@
 # snow-drought-modeling
 
-#### Data Release and DOI forthcoming; datasets are not yet complete and ready for release
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20752419.svg)](https://doi.org/10.5281/zenodo.20752419)
 
 ### Overview
 
