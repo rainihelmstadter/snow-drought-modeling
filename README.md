@@ -21,10 +21,12 @@ This project will use machine learning to model snow-water equivalent (SWE) acro
 
 ### Usage
 
-This repository contains a few important features:
+This repository contains a few important files and folders:
 - environment.yml: use this to create Python environment suitable for working through the notebooks.
 - src folder: stores functions and constants used across the notebooks
 - notebooks (in code folder): designed to be worked through in numerical order
+- outputs: storage for plots and other important outputs
+- data: sorts data into raw and cleaned folders. Data is not uploaded to GitHub.
 
 Notebooks:
 - 01: Used to define a geographic study area and download SNOTEL data that accords to the study area. I selected the HUC6 Missouri Headwaters watershed, but a different watershed could be downloaded instead.
