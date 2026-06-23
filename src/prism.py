@@ -4,8 +4,7 @@ either in point location or full raster format.
 
 It contains X functions:
 * water_year_dates: Generate daily dates for Oct-Jun of given water year
-* make_station_csv: Makes a csv of station lat, lon, and names from GeoDataFrame of SNOTEL stations
-* get_prism_for_stations: Download PRISM climate data for SNOTEL station locations DEPRACATED
+* get_prism_rasters: Download PRISM rasters for given dates and variables
 """
 
 # Library Imports
@@ -52,102 +51,7 @@ def water_year_dates(start_wy, end_wy):
 
 #----------------------------------------------------------------
 
-# def make_station_csv(stations_gdf):
-#     '''
-#     Make a csv for PRISM bulk point submission from stations_gdf.
-#     PRISM format expects: lat, lon, stationTriplet
-    
-#     Args:
-#     -----
-#     stations_gdf (GeoDataFrame): 
-#         Must have geometry (point) and 'stationTriplet' column
-    
-#     Returns:
-#     --------
-#     str: CSV-formatted string of station coordinates
-#     '''
-#     rows = []
-#     for _, row in stations_gdf.iterrows():
-#         rows.append({
-#             "Latitude": round(row.geometry.y, 5),
-#             "Longitude": round(row.geometry.x, 5),
-#             "Name": row["stationTriplet"]
-#         })
-#     return pd.DataFrame(rows).to_csv(index=False)
-
-# #----------------------------------------------------------------
-
-# def get_prism_for_stations(stations_gdf, dates, variables):
-#     '''
-#     Download daily PRISM climate variables for given time range, variables,
-#     and SNOTEL stations(s).
-
-#     Args:
-#     -----
-#     stations_gdf (GeoDataFrame):
-#         gdf of SNOTEL stations. 
-#         Must include lat, lon, and station triplet for each station.
-#     dates (list):
-#         List of daily water year dates (can include multiple years)
-#     variables (list):
-#         List of variables of interest.
-
-#     Returns:
-#     --------
-#     sntl_prism (pd.DataFrame): 
-#         Results of PRISM API query in format: [stationTriplet, date, ppt (precip), tmin, tmax, water_year]
-#     '''
-
-#     # Set endpoint
-#     url = "https://prism.oregonstate.edu/explorer/bulk.php",
-    
-#     # Format variables
-#     stats_str = " ".join(variables)
-
-#     # initialize df/da/ds
-#     results = []
-
-#     # loop through water years and stations
-#     for start_date, end_date, wy in tqdm(dates, desc="Water Year"):
-#         for _, station in stations_gdf.iterrows:
-
-#             # set parameters
-#             params = {
-#                 "stats": stats_str,
-#                 "units": "si",
-#                 "range": "daily",
-#                 "start": start_date.strftime("%Y%m%d"),   # YYYYMMDD
-#                 "end": end_date.strftime("%Y%m%d"),
-#                 "lon": round(station.geometry.x, 5),
-#                 "lat": round(station.geometry.y, 5),
-#                 "elev": round(station["elevation"]),
-#                 "call": "pp/daily_timeseries",
-#             }
-
-#             try:
-#                 response = requests.get(url, params = params, timeout=60)
-#                 response.raise_for_status
-
-#             # Warning flags
-#             except requests.exceptions.Timeout:
-#                 print(f"Timeout: {station['name']} WY{wy}")
-#             except requests.exceptions.HTTPError as e:
-#                 print(f"HTTP error: {station['name']} WY{wy} — {e}")
-#             except Exception as e:
-#                 print(f"Unexpected error: {station['name']} WY{wy} — {e}")
-    
-#     # Warning if function doesn't work
-#     if not results:
-#         print("No data returned — check endpoint, parameters, and units flag")
-#         return None
-
-#     # Concat results into one big DF
-#     sntl_prism = pd.concat(results, ignore_index = True)
-#     return sntl_prism
-
-#----------------------------------------------------------------
-
-def get_prism_snow_rasters(dates, resolution, download_dir, variables):
+def get_prism_rasters(dates, resolution, download_dir, variables):
     '''
     Downloads CONUS PRISM daily data for a given set of dates and variables.
     Stores rasters as netCDF files.

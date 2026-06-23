@@ -34,6 +34,7 @@ Notebooks:
 
 A few notes on usage: 
 - the file structure listed for the data directories is applicable to my machines; you may want to update to fit yours. 
+- all packages should be included in the environment.yml file, but for those using an Earth Analytics kernel, you might need to install a package or two. Code for those packages are below the import block in a notebook; uncomment the code and run it to install the necessary packages.
 - The repository is currently in a transition to using a src architecture; Notebook 1 does not use it yet, but later notebooks do.
 - Downloading the PRISM dataset used in this notebook takes a long time (~20 hours), and the PRISM server is sensitive to repeated requests; plan accordingly.
 
