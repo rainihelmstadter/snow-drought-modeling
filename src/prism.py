@@ -14,6 +14,7 @@ from datetime import datetime, timedelta # calculate dates
 import geopandas as gpd
 import os
 import pandas as pd
+import re
 import requests
 import rioxarray as rxr
 import time
@@ -164,6 +165,32 @@ def get_prism_rasters(dates, resolution, download_dir, variables):
 
 #----------------------------------------------------------------
 
+def extract_date_and_expand(ds):
+    '''
+    Helper function for crop_prism_rasters.
+    Extracts date from PRISM filename and adds a time dimension to ds.
+
+    Args:
+    -----
+    ds (xarray.DataSet):
+        Input dataset with date in filename
+
+    Returns:
+    --------
+    ds (xarray.DataSet):
+        Dataset with time dimension attached.
+    
+    '''
+    filename = ds.encoding['source']
+    match = re.search(r'([12]\d{3}[01]\d[0-3]\d)', filename)
+    if match:
+        date_str = match.group(1)
+        date_obj = pd.to_datetime(date_str)
+        ds = ds.expand_dims(time=[date_obj])
+    return ds
+
+#----------------------------------------------------------------
+
 def crop_prism_rasters(prism_dir, study_gdf):
     '''
     Crop CONUS-sized PRISM rasters to study area and save as a NetCDF.
@@ -187,23 +214,31 @@ def crop_prism_rasters(prism_dir, study_gdf):
     # use open_mfdataset to wrangle all the prism rasters
     # open_mfdataset looks at multiple files (the mf in the name) and can load them into one variable, 
     # but not all at once, so that the computer doesn't crash
-    raw_rasters = xr.open_mfdataset(
+    # load each variable into its own ds
+    ppt_ds = xr.open_mfdataset(
         # grab all netCDF files in the raw raster directory
-        f'{prism_dir}/*.nc', 
+        f'{prism_dir}/*ppt*.nc', 
         # look at header information and combine each netCDF by coords (lat, lon, time, etc)
-        combine='by_coords', 
+        combine='by_coords',
+        # extract date from filename and add to ds as a time dim
+        preprocess=extract_date_and_expand, 
         # use multiple CPU cores to run this
         parallel=True
         )
-    
+    # repeat w/ tmin and tmax
+    tmax_ds = xr.open_mfdataset(f'{prism_dir}/*tmax*.nc', combine='by_coords', preprocess=extract_date_and_expand, parallel=True)
+    tmin_ds = xr.open_mfdataset(f'{prism_dir}/*tmin*.nc', combine='by_coords', preprocess=extract_date_and_expand, parallel=True)
+
+    # now that each var has been aligned, merge into one dataset
+    raw_rasters = xr.merge([ppt_ds, tmax_ds, tmin_ds])
+
     # set area bounding box for initial crop
     xmin, ymin, xmax, ymax = study_gdf.total_bounds
 
     # select raster data within bounding box
     bbox = raw_rasters.sel(
         lon = slice(xmin, xmax),
-        # PRISM lats are max to min because PRISM data is stored North to South (according to Gemini - check this)
-        lat = slice(ymax, ymin)
+        lat = slice(ymin, ymax)
     )
 
     # load data within bounding box into memory
@@ -245,3 +280,13 @@ def clean_prism_data(prism_da):
     prism_clean_da (xarray.DataArray):
         array of prism rasters that's been cleaned and prepped
     '''
+
+    # Mask potential -9999 no data values or erroneous precip values
+    clean_da = prism_da.where(prism_da['tmin'] > -100)
+    clean_da = clean_da.where(clean_da['ppt'] >= 0)
+
+    # Downgrade to float32
+    for var in ['ppt', 'tmin', 'tmax']:
+        if var in clean_da.vars:
+            clean_da[var] = clean_da[var].astype('float32')
+    
