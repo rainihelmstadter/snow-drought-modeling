@@ -10,12 +10,15 @@ It contains X functions:
 # Library Imports
 
 import glob
-import pandas as pd
 from datetime import datetime, timedelta # calculate dates
+import geopandas as gpd
 import os
+import pandas as pd
 import requests
+import rioxarray as rxr
 import time
 from tqdm import tqdm
+import xarray as xr 
 import zipfile
 
 from requests.adapters import HTTPAdapter
@@ -161,7 +164,84 @@ def get_prism_rasters(dates, resolution, download_dir, variables):
 
 #----------------------------------------------------------------
 
-def crop_prism_rasters():
+def crop_prism_rasters(prism_dir, study_gdf):
     '''
     Crop CONUS-sized PRISM rasters to study area and save as a NetCDF.
+
+    Args:
+    -----
+    prism_dir (str):
+        Path to folder where PRISM rasters are stored
+    study_gdf (geopandas.GeoDataFrame):
+        gdf defining study area boundary to crop to
+    
+    Returns:
+    prism_crop_da (xarray.DataArray)
+    '''
+
+    # reproject study_gdf CRS (currently in EPSG:4326) to raster CRS (EPSG:4269)
+    if not study_gdf.crs == 'EPSG:4269':
+        study_gdf = study_gdf.to_crs('EPSG:4269')
+
+
+    # use open_mfdataset to wrangle all the prism rasters
+    # open_mfdataset looks at multiple files (the mf in the name) and can load them into one variable, 
+    # but not all at once, so that the computer doesn't crash
+    raw_rasters = xr.open_mfdataset(
+        # grab all netCDF files in the raw raster directory
+        f'{prism_dir}/*.nc', 
+        # look at header information and combine each netCDF by coords (lat, lon, time, etc)
+        combine='by_coords', 
+        # use multiple CPU cores to run this
+        parallel=True
+        )
+    
+    # set area bounding box for initial crop
+    xmin, ymin, xmax, ymax = study_gdf.total_bounds
+
+    # select raster data within bounding box
+    bbox = raw_rasters.sel(
+        lon = slice(xmin, xmax),
+        # PRISM lats are max to min because PRISM data is stored North to South (according to Gemini - check this)
+        lat = slice(ymax, ymin)
+    )
+
+    # load data within bounding box into memory
+    print('Cropping PRISM rasters to bounding box')
+    prism_bbox_da = bbox.compute()
+    print('Bounding box crop complete!')
+
+    # set da CRS and geospatial components
+    prism_bbox_da.rio.write_crs('EPSG:4269', inplace=True)
+    prism_bbox_da.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
+
+    # clip to exact study area bounds and reproject to match other data types
+    crop_da = prism_bbox_da.rio.clip(study_gdf.geometry, study_gdf.crs, drop=True)
+    prism_crop_da = crop_da.rio.to_crs('EPSG:4326')
+    prism_crop_da = prism_crop_da.rename({'x': 'lon', 'y': 'lat'})
+
+    return prism_crop_da
+
+#----------------------------------------------------------------
+
+def clean_prism_data(prism_da):
+    '''
+    This function will clean, standardize, and streamline the PRISM 
+    data before it gets saved for use in later notebooks.
+
+    The workflow is as follows:
+    1. Clean of NaNs and physically impossible values
+    2. Standardize datetime
+    3. Set variables to float32
+    4. Set chunking strategy for future loading
+
+    Args:
+    -----
+    prism_crop_da (xarray.DataArray):
+        array of prism rasters cropped to study area
+
+    Returns:
+    --------
+    prism_clean_da (xarray.DataArray):
+        array of prism rasters that's been cleaned and prepped
     '''
