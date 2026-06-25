@@ -2,10 +2,15 @@
 This script contains functions that are used to select and download PRISM climate data, 
 either in point location or full raster format.
 
-It contains X functions:
+It contains the following X functions:
 * water_year_dates: Generate daily dates for Oct-Jun of given water year
 * get_prism_rasters: Download PRISM rasters for given dates and variables
+* extract_date_and_expand: Helper function to extract date from PRISM raster filenames
+* crop_prism_rasters: Extracts data from PRISM rasters within a given study area boundary
+* clean_prism_data: 
 """
+
+#----------------------------------------------------------------
 
 # Library Imports
 
@@ -24,6 +29,9 @@ import zipfile
 
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
+
+#----------------------------------------------------------------
+#----------------------------------------------------------------
 
 # Functions
 

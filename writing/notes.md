@@ -71,3 +71,18 @@ PRISM rasters are not accessible using a geospatial filter - I have to download 
 - Points must be formatted in a csv as described on the 
 
 Doesn't look like the point downloader will work - I'll need to just do the bulk download and then mask from there.
+
+## 6/24
+
+Status update: PRISM rasters downloaded, working on extracting just the study area and doing QC before saving that to file; found a new SNOTEL dataset that has been bias corrected already - AMAZING!
+
+Collection of links to papers that use the BCQC SNOTEL dataset:
+- https://repository.library.noaa.gov/view/noaa/66529
+- https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2018JD030140
+- https://agupubs.onlinelibrary.wiley.com/doi/10.1002/2017WR021290
+- https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2018GL080260
+
+BCQC Dataset: https://www.pnnl.gov/projects/distributed-hydrology-soil-vegetation-model/data-products
+- dataset in imperial still
+- no value is NaN
+- each station is stored as bcqc_lat_lon.txt w/ space delimiter
