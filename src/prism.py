@@ -7,7 +7,22 @@ It contains the following X functions:
 * get_prism_rasters: Download PRISM rasters for given dates and variables
 * extract_date_and_expand: Helper function to extract date from PRISM raster filenames
 * crop_prism_rasters: Extracts data from PRISM rasters within a given study area boundary
-* clean_prism_data: 
+* clean_prism_data: Cleans PRISM data in preparation for saving files for future use.
+
+These functions were included in my src for the following reasons:
+- Readability of my notebooks. These functions are long and dense, and could make it very hard to follow the notebook. 
+- Modularizing PRISM usage. It's easy to imagine that I or other researchers might want to use PRISM data in different work. 
+The functions have been created with that in mind, and can accept inputs for totally different temporal or spatial 
+requirements than my project. In addition, if I wanted to access a different PRISM format or the access methodology changed,
+I can just update the functions here and my notebooks will still work automatically.
+- PRISM data is stored in a somewhat clunky format - for example, the date for a file is in the filename, not stored 
+within the file as an attribute, and the data are stored as rasters for the entire Continental US. These qualities require 
+additional processing steps, which are best written in a separately to make a notebook easy to read and to make future work 
+easier to perform.
+- I have a few future plans for modularization for the project. First, I'd like to make it possible to select a different 
+study area programmatically, so that this model could be easily applied to a different area. In addition, I plan to add a set 
+of constants (units, preferred no-data values, preferred file types, etc.) amd a standard plotting function that can be used across notebooks.
+
 """
 
 #----------------------------------------------------------------
