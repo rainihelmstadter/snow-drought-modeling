@@ -290,8 +290,7 @@ def clean_prism_data(prism_da):
     The workflow is as follows:
     1. Clean of NaNs and physically impossible values
     2. Standardize datetime
-    3. Set variables to float32
-    4. Set chunking strategy for future loading
+    3. Set variables to float32 to reduce storage space
 
     Args:
     -----
@@ -305,7 +304,9 @@ def clean_prism_data(prism_da):
     '''
 
     # Mask potential -9999 no data values or erroneous precip values
+    # -9999 to NaN
     clean_da = prism_da.where(prism_da['tmin'] > -100)
+    # remove negative precipitation
     clean_da = clean_da.where(clean_da['ppt'] >= 0)
 
     # Downgrade to float32
