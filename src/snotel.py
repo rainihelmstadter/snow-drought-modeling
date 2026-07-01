@@ -247,7 +247,7 @@ def build_snotel_dataset(station_list, metadata_gdf, variables, duration, begin_
 
 #----------------------------------------------------------------
 
-def load_bcqc_data(bcqc_dir, station_gdf):
+def import_bcqc_data(bcqc_dir, station_gdf):
     '''
     Load BCQC SNOTEL data into an xarray.DataArray using SNOTEL station coordinates.
 

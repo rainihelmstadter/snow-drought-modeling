@@ -226,7 +226,7 @@ def crop_prism_rasters(prism_dir, study_gdf):
         gdf defining study area boundary to crop to
     
     Returns:
-    prism_crop_da (xarray.DataArray)
+    prism_crop_ds (xarray.DataArray)
     '''
 
     # reproject study_gdf CRS (currently in EPSG:4326) to raster CRS (EPSG:4269)
@@ -253,36 +253,36 @@ def crop_prism_rasters(prism_dir, study_gdf):
     tmin_ds = xr.open_mfdataset(f'{prism_dir}/*tmin*.nc', combine='by_coords', preprocess=extract_date_and_expand, parallel=True)
 
     # now that each var has been aligned, merge into one dataset
-    raw_rasters = xr.merge([ppt_ds, tmax_ds, tmin_ds])
+    raw_rasters_ds = xr.merge([ppt_ds, tmax_ds, tmin_ds])
 
     # set area bounding box for initial crop
     xmin, ymin, xmax, ymax = study_gdf.total_bounds
 
     # select raster data within bounding box
-    bbox = raw_rasters.sel(
+    bbox = raw_rasters_ds.sel(
         lon = slice(xmin, xmax),
         lat = slice(ymin, ymax)
     )
 
     # load data within bounding box into memory
     print('Cropping PRISM rasters to bounding box')
-    prism_bbox_da = bbox.compute()
+    prism_bbox_ds = bbox.compute()
     print('Bounding box crop complete!')
 
     # set da CRS and geospatial components
-    prism_bbox_da.rio.write_crs('EPSG:4269', inplace=True)
-    prism_bbox_da.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
+    prism_bbox_ds.rio.write_crs('EPSG:4269', inplace=True)
+    prism_bbox_ds.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
 
     # clip to exact study area bounds and reproject to match other data types
-    crop_da = prism_bbox_da.rio.clip(study_gdf.geometry, study_gdf.crs, drop=True)
-    prism_crop_da = crop_da.rio.to_crs('EPSG:4326')
-    prism_crop_da = prism_crop_da.rename({'x': 'lon', 'y': 'lat'})
+    crop_ds = prism_bbox_ds.rio.clip(study_gdf.geometry, study_gdf.crs, drop=True)
+    prism_crop_ds = crop_ds.rio.to_crs('EPSG:4326')
+    prism_crop_ds = prism_crop_ds.rename({'x': 'lon', 'y': 'lat'})
 
-    return prism_crop_da
+    return prism_crop_ds
 
 #----------------------------------------------------------------
 
-def clean_prism_data(prism_da):
+def clean_prism_data(prism_ds):
     '''
     This function will clean, standardize, and streamline the PRISM 
     data before it gets saved for use in later notebooks.
@@ -294,7 +294,7 @@ def clean_prism_data(prism_da):
 
     Args:
     -----
-    prism_crop_da (xarray.DataArray):
+    prism_crop_ds (xarray.DataArray):
         array of prism rasters cropped to study area
 
     Returns:
@@ -303,14 +303,22 @@ def clean_prism_data(prism_da):
         array of prism rasters that's been cleaned and prepped
     '''
 
+    # make a copy of prism_ds so each var can be cleaned without masking all three values
+    clean_ds = prism_ds.copy()
+
     # Mask potential -9999 no data values or erroneous precip values
-    # -9999 to NaN
-    clean_da = prism_da.where(prism_da['tmin'] > -100)
-    # remove negative precipitation
-    clean_da = clean_da.where(clean_da['ppt'] >= 0)
+    # -9999 to NaN for temp
+    clean_ds['tmin'] = clean_ds['tmin'].where(clean_ds['tmin'] > -100)
+    clean_ds['tmax'] = clean_ds['tmax'].where(clean_ds['tmax'] > -100)
+
+    # remove erroneous TMax values
+    clean_ds['tmax'] = clean_ds['tmax'].where(clean_ds['tmax'] < 120)
+
+    # remove negative precipitation (including -9999 values)
+    clean_ds['ppt'] = clean_ds['ppt'].where(clean_ds['ppt'] >= 0)
 
     # Downgrade to float32
-    for var in ['ppt', 'tmin', 'tmax']:
-        if var in clean_da.vars:
-            clean_da[var] = clean_da[var].astype('float32')
+    clean_ds = clean_ds.astype('float32')
+
+    return clean_ds
     
