@@ -1,8 +1,7 @@
 """
-This script contains functions that are used to select and download PRISM climate data, 
-either in point location or full raster format.
+This script contains functions that are used to select and download PRISM climate data in full raster format.
 
-It contains the following X functions:
+It contains the following 5 functions:
 * water_year_dates: Generate daily dates for Oct-Jun of given water year
 * get_prism_rasters: Download PRISM rasters for given dates and variables
 * extract_date_and_expand: Helper function to extract date from PRISM raster filenames
@@ -248,25 +247,30 @@ def crop_prism_rasters(prism_dir, study_gdf):
         # use multiple CPU cores to run this
         parallel=True
         )
+    
     # repeat w/ tmin and tmax
     tmax_ds = xr.open_mfdataset(f'{prism_dir}/*tmax*.nc', combine='by_coords', preprocess=extract_date_and_expand, parallel=True)
     tmin_ds = xr.open_mfdataset(f'{prism_dir}/*tmin*.nc', combine='by_coords', preprocess=extract_date_and_expand, parallel=True)
 
-    # now that each var has been aligned, merge into one dataset
-    raw_rasters_ds = xr.merge([ppt_ds, tmax_ds, tmin_ds])
+    # rename Bands to var
+    ppt_ds = ppt_ds.rename({'Band1': 'ppt'})
+    tmin_ds = tmin_ds.rename({'Band1': 'tmin'})
+    tmax_ds = tmax_ds.rename({'Band1': 'tmax'})
 
     # set area bounding box for initial crop
     xmin, ymin, xmax, ymax = study_gdf.total_bounds
 
-    # select raster data within bounding box
-    bbox = raw_rasters_ds.sel(
-        lon = slice(xmin, xmax),
-        lat = slice(ymin, ymax)
-    )
+    # select raster data within bounding box for each ds
+    ppt_bbox_ds = ppt_ds.sel(lon = slice(xmin, xmax), lat = slice(ymin, ymax))
+    tmin_bbox_ds = tmin_ds.sel(lon = slice(xmin, xmax), lat = slice(ymin, ymax))
+    tmax_bbox_ds = tmax_ds.sel(lon = slice(xmin, xmax), lat = slice(ymin, ymax))
+
+    # now that each var has been aligned, renamed, and cropped, merge into one dataset
+    bbox_ds = xr.merge([ppt_bbox_ds, tmin_bbox_ds, tmax_bbox_ds])
 
     # load data within bounding box into memory
     print('Cropping PRISM rasters to bounding box')
-    prism_bbox_ds = bbox.compute()
+    prism_bbox_ds = bbox_ds.compute()
     print('Bounding box crop complete!')
 
     # set da CRS and geospatial components
@@ -275,7 +279,7 @@ def crop_prism_rasters(prism_dir, study_gdf):
 
     # clip to exact study area bounds and reproject to match other data types
     crop_ds = prism_bbox_ds.rio.clip(study_gdf.geometry, study_gdf.crs, drop=True)
-    prism_crop_ds = crop_ds.rio.to_crs('EPSG:4326')
+    prism_crop_ds = crop_ds.rio.reproject('EPSG:4326')
     prism_crop_ds = prism_crop_ds.rename({'x': 'lon', 'y': 'lat'})
 
     return prism_crop_ds
