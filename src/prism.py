@@ -282,6 +282,9 @@ def crop_prism_rasters(prism_dir, study_gdf):
     prism_crop_ds = crop_ds.rio.reproject('EPSG:4326')
     prism_crop_ds = prism_crop_ds.rename({'x': 'lon', 'y': 'lat'})
 
+    # tell rioxarray that lon and lat are the spatial dimensions
+    prism_crop_ds.rio.set_spatial_dims(x_dim="lon", y_dim="lat", inplace=True)
+
     return prism_crop_ds
 
 #----------------------------------------------------------------
@@ -312,14 +315,14 @@ def clean_prism_data(prism_ds):
 
     # Mask potential -9999 no data values or erroneous precip values
     # -9999 to NaN for temp
-    clean_ds['tmin'] = clean_ds['tmin'].where(clean_ds['tmin'] > -100)
-    clean_ds['tmax'] = clean_ds['tmax'].where(clean_ds['tmax'] > -100)
+    clean_ds['tmin'] = clean_ds['tmin'].where(clean_ds['tmin'] > -100, keep_attrs=True)
+    clean_ds['tmax'] = clean_ds['tmax'].where(clean_ds['tmax'] > -100, keep_attrs=True)
 
     # remove erroneous TMax values
-    clean_ds['tmax'] = clean_ds['tmax'].where(clean_ds['tmax'] < 120)
+    clean_ds['tmax'] = clean_ds['tmax'].where(clean_ds['tmax'] < 120, keep_attrs=True)
 
     # remove negative precipitation (including -9999 values)
-    clean_ds['ppt'] = clean_ds['ppt'].where(clean_ds['ppt'] >= 0)
+    clean_ds['ppt'] = clean_ds['ppt'].where(clean_ds['ppt'] >= 0, keep_attrs=True)
 
     # Downgrade to float32
     clean_ds = clean_ds.astype('float32')
