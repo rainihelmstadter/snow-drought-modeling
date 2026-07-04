@@ -282,7 +282,8 @@ def crop_prism_rasters(prism_dir, study_gdf):
     prism_crop_ds = crop_ds.rio.reproject('EPSG:4326')
     prism_crop_ds = prism_crop_ds.rename({'x': 'lon', 'y': 'lat'})
 
-    # tell rioxarray that lon and lat are the spatial dimensions
+    # tell rioxarray that lon and lat are the spatial dimensions; 
+    # this step might not be necessary but should add some safety
     prism_crop_ds.rio.set_spatial_dims(x_dim="lon", y_dim="lat", inplace=True)
 
     return prism_crop_ds
