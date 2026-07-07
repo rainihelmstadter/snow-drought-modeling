@@ -244,13 +244,18 @@ def crop_prism_rasters(prism_dir, study_gdf):
         combine='by_coords',
         # extract date from filename and add to ds as a time dim
         preprocess=extract_date_and_expand, 
-        # use multiple CPU cores to run this
-        parallel=True
+        # use multiple CPU cores to run this; remove if pulling data from external hard drive
+        #parallel=True
         )
     
     # repeat w/ tmin and tmax
-    tmax_ds = xr.open_mfdataset(f'{prism_dir}/*tmax*.nc', combine='by_coords', preprocess=extract_date_and_expand, parallel=True)
-    tmin_ds = xr.open_mfdataset(f'{prism_dir}/*tmin*.nc', combine='by_coords', preprocess=extract_date_and_expand, parallel=True)
+    tmax_ds = xr.open_mfdataset(f'{prism_dir}/*tmax*.nc', combine='by_coords', preprocess=extract_date_and_expand, 
+                                
+                                #parallel=True
+                                )
+    tmin_ds = xr.open_mfdataset(f'{prism_dir}/*tmin*.nc', combine='by_coords', preprocess=extract_date_and_expand, 
+                                #parallel=True
+                                )
 
     # rename Bands to var
     ppt_ds = ppt_ds.rename({'Band1': 'ppt'})
@@ -316,17 +321,26 @@ def clean_prism_data(prism_ds):
 
     # Mask potential -9999 no data values or erroneous precip values
     # -9999 to NaN for temp
-    clean_ds['tmin'] = clean_ds['tmin'].where(clean_ds['tmin'] > -100, keep_attrs=True)
-    clean_ds['tmax'] = clean_ds['tmax'].where(clean_ds['tmax'] > -100, keep_attrs=True)
+    clean_ds['tmin'] = clean_ds['tmin'].where(clean_ds['tmin'] > -100)
+    clean_ds['tmax'] = clean_ds['tmax'].where(clean_ds['tmax'] > -100)
 
     # remove erroneous TMax values
-    clean_ds['tmax'] = clean_ds['tmax'].where(clean_ds['tmax'] < 120, keep_attrs=True)
+    clean_ds['tmax'] = clean_ds['tmax'].where(clean_ds['tmax'] < 120)
 
     # remove negative precipitation (including -9999 values)
-    clean_ds['ppt'] = clean_ds['ppt'].where(clean_ds['ppt'] >= 0, keep_attrs=True)
+    clean_ds['ppt'] = clean_ds['ppt'].where(clean_ds['ppt'] >= 0)
 
     # Downgrade to float32
     clean_ds = clean_ds.astype('float32')
+
+    # recopy attributes from prism_ds to ensure they haven't been removed by cleaning
+    # this is for things like crs, spatial ref, units, etc
+    for var in clean_ds.data_vars:
+        clean_ds[var].attrs = prism_ds[var].attrs.copy()
+        clean_ds[var].attrs['grid_mapping'] = 'crs'
+    clean_ds.attrs = prism_ds.attrs.copy()
+    clean_ds['crs'].attrs = prism_ds['crs'].attrs.copy()
+    
 
     return clean_ds
     
