@@ -13,15 +13,15 @@ dependencies:
 - rioxarray
 - holoviews
 - hvplot
+- matplotlib
 - requests
 - time
 - tqdm
 - pygeohydro
 - pyarrow
-- matplotlib
 - shapely
-- scikit-learn
-- pyPRISMclimate
+- sklearn
+- xgboost
 
 # Use pip to install src folder
 - pip
