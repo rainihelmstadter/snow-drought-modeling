@@ -88,7 +88,7 @@ There are two avenues for future work on this project. First, developing an ense
 
 - Steele, H., Small, E. E., & Raleigh, M. S. (2024). Demonstrating a Hybrid Machine Learning Approach for Snow Characteristic Estimation Throughout the Western United States. Water Resources Research, 60(6), e2023WR035805. https://doi.org/10.1029/2023WR035805
 
--Sun, N., Yan, H., Wigmosta, M. S., Leung, L. R., Skaggs, R., & Hou, Z. (2019). Regional Snow Parameters Estimation for Large-Domain Hydrological Applications in the Western United States. Journal of Geophysical Research: Atmospheres, 124(10), 5296–5313. https://doi.org/10.1029/2018JD030140
+- Sun, N., Yan, H., Wigmosta, M. S., Leung, L. R., Skaggs, R., & Hou, Z. (2019). Regional Snow Parameters Estimation for Large-Domain Hydrological Applications in the Western United States. Journal of Geophysical Research: Atmospheres, 124(10), 5296–5313. https://doi.org/10.1029/2018JD030140
 
 - Yan, H., Sun, N., Wigmosta, M., Skaggs, R., Hou, Z., & Leung, R. (2018). Next-Generation Intensity-Duration-Frequency Curves for Hydrologic Design in Snow-Dominated Environments. Water Resources Research, 54(2), 1093–1108. https://doi.org/10.1002/2017WR021290
 
