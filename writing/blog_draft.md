@@ -25,13 +25,12 @@ One challenge of utilizing ML to model SWE is algorithm selection. Hybrid models
 The Missouri Headwaters (MHW) HUC6 watershed was chosen as the study region. This watershed captures numerous mountain ranges as well as 28 SNOTEL stations, providing a wealth of data to use for the model.
 
 #### 2.3: Training Datasets
-| Dataset | Access | Concerns | Obtainment |
-| --- | --- | --- | --- |
+| Dataset | Access |
+| --- | --- |
 | SNOTEL historical daily SWE, temp, precip time series | USDA AWDB API |
-| BCQC SNOTEL dataset | PNNL website |
+| BCQC SNOTEL daily dataset | [PNNL website](link here) |
 | SRTM Digital Elevation Model | TNM Access API |
-| PRISM gridded historical climate data | PRISM Climate Group API |
-| MACAv2 downscaled future climate data | MACA Thredds server |
+| PRISM gridded historical climate data | [PRISM Climate Group API](link) |
 
 Data used in the ML model are indicated in the table above. SNOTEL data provided the target variable (SWE). PRISM data provided climate data used as predictor variables. The PRISM dataset is an interpolated dataset that excels at capturing weather patterns in complex mountainous terrain (Daly et al. 2008), and is freely available at 4km resolution; given the aim of this study, PRISM was the ideal option to provide climate data. Climate data included daily minimum temperature, maximum temperature, and precipitation; rolling windows of weather patterns as well as temporal variables were engineered from the PRISM data. A SRTM digital elevation model (DEM) was used to provide topographic data to the model, supplementing the PRISM data. DEM data included elevation, slope, and aspect; the DEM (30 arcsecond resolution) was upscaled to match the PRISM data (4km resolution). Upscaling methodology was guided by Grohmann 2015: aspect and slope were calculated at native resolution, and then upscaled to the 4km grid. Further, given that aspect is a continuous variable that the ML algorithm can't parse, aspect was expanded to aspect northness and eastness.
 
@@ -48,17 +47,51 @@ Various studies (Alabi et al. 2026, ...) found that engineering additional featu
 
 #### 2.5: Machine Learning Approach
 
-Informed by the literature on ML and snowpack, this study uses Random Forests (a decision-tree algorithm) to predict SWE. A decision-tree algorithm was chosen for two main reasons: ease of deployment, and demonstrated skill in predicting SWE based on climatic variables. Decision-tree algorithms seem to have similar levels of skill in predicting SWE as more computationally expensive algorithms, but are deployable on a variety of computing equipment. Given the focus on developing a model that could be used by a variety of stakeholders, decision-tree algorithms are the obvious choice. Random Forests was chosen as a simple starting point. There are more advanced decision-tree algorithms (such as gradient boosting algorithms like XGBoost or CatBoost), but Random Forests has been shown to be a dependable algorithms (Alabi et al. 2026), while remaining easy to use. When used in Python, Random Forests accepts common data formats like Pandas DataFrames, and requires just a few lines of code from the scikit-learn package to set up and fit the model; validation functions are likewise user-friendly.
+Informed by the literature on ML and snowpack, this study uses Random Forests (a decision-tree algorithm) to predict SWE. A decision-tree algorithm was chosen for two main reasons: ease of deployment, and demonstrated skill in predicting SWE based on climatic variables. Decision-tree algorithms seem to have similar levels of skill in predicting SWE as more computationally expensive algorithms, but are deployable on a variety of computing equipment. Given the focus on developing a model that could be used by a variety of stakeholders, decision-tree algorithms are the obvious choice. Random Forests was chosen as a simple starting point. There are more advanced decision-tree algorithms (such as gradient boosting algorithms like XGBoost or CatBoost), but Random Forests has been shown to be a dependable algorithms (Alabi et al. 2026), while remaining easy to use. When used in Python, Random Forests accepts common data formats like Pandas DataFrames, and requires just a few lines of code from the scikit-learn package to set up and fit the model. Further, validation functions often built in and user-friendly.
 
-The ML algorithm used climate data derived from PRISM data as the predictor variables, and SWE data from the SNOTEL dataset as the target variable. To train the model, timeseries data from PRISM was selected at each grid cell that contained a SNOTEL site. Thus, each row of the training dataset had a SWE measurement (from the SNOTEL station) and climate data for the grid cell. Actual SWE across the grid cell would obviously be much more heterogeneous than this representation, but this approach is the best available with the data that's available.
+The ML algorithm used climate data derived from PRISM data as the predictor variables, and SWE data from the SNOTEL dataset as the target variable. To train the model, timeseries data from PRISM was selected at each grid cell that contained a SNOTEL site. Thus, each row of the training dataset had a SWE measurement (from the SNOTEL station) and climate data for the grid cell. Actual SWE across the grid cell would obviously be much more heterogeneous than this representation, but this approach is the best possible with the data that's available.
 
-A train/test split was completed temporally, in order to preserve the cohesion of data for SWE prediction. Three rounds of hyperparameter tuning were performed to find the ideal parameters for the Random Forests model. Hyperparameter tuning was completed using Randomized and Grid Search functions from scikit-learn.
+A train/test split was completed temporally, in order to preserve the cohesion of data for SWE prediction. Water years 1995-2015 were used for training, and water years 2016-2020 were used for testing. Three rounds of hyperparameter tuning were performed to find the ideal parameters for the Random Forests model. Hyperparameter tuning was completed using Randomized and Grid Search functions from scikit-learn.
 
 ## 3:Results
 
-Results still forthcoming.
+<embed type="text/html" src="./projects/predicting_swe_with_machine_learning/winter_1997_swe_animation_embed.html" height="600" width="800">
+
+Results from model training are promising! The Random Forests algorithm was successfully used to train a machine learning model to predict SWE at the SNOTEL stations, and then across the study area. The animation above shows predicted SWE across the study area throughout Winter 1997 (the biggest snow year on record in the dataset). Employing the ML model to predict SWE across the Missouri Headwaters watershed reveals interesting patterns. First, the model is able to capture topographic effects - SWE is lower in the valleys and low elevation regions of the area, and much higher in mountainous, high elevation areas. This implies that there is enough range in the SNOTEL dataset to adequately train the model. Second, the model shows an interesting divergence in how SWE accumulates and melts. At lower elevations, SWE begins to decrease in April and May, while SWE continues to increase in mountainous regions until late May. This result is interesting in the context of the typical April 1 assumption for max SWE; perhaps the standard day for measuring max SWE could vary by elevation.
+
+<embed type="text/html" src="./projects/predicting_swe_with_machine_learning/max_vol_plot.html" height="600" width="800">
+
+An annual view of maximum SWE in the entire watershed reveals further findings. First, there is a slight positive trend in accumulation across the entire study period, and a fairly wide range in maximum SWE: 6-9 $km^3$. However, examining the day of year when the maximum SWE in the entire watershed is reached is revelatory. As indicated by the color of each point in the plot above, there is a trend in maximum SWE being reached earlier in the year (0.655 days/year). Put together, these findings suggest that more precipitation is falling in the watershed each winter, but melting is beginning earlier. Further, if we assume that the increased precipitation trend is steady across the whole winter, and maximum SWE is reached earlier, a major threshold is implied: it is likely that more precipitation in early spring is falling as rain rather than snow. This finding is exactly why this study was conducted. The pattern change indicated here will require shifts in management procedures and implies potential issues later in the summer.
 
 ## 4:Discussion
+
+#### 4a: Model Validation
+
+| Statistic | Value |
+| --- | --- |
+| Average Bias | 2.072mm |
+| RMSE | 116.297mm |
+| $R^2$ | 0.735 |
+
+Preliminary statistics on model performance suggest good reliability. Average bias across the entire dataset (comparing observed and predicted SWE at each station and timestep) is quite low, at 2.072 mm. $R^2$ is 0.735, meaning the model explains about three-fourths of the variance. While this statistic could certainly be improved, this is a strong starting point for a Random Forests algorithm.
+
+<embed type="text/html" src="./projects/predicting_swe_with_machine_learning/annual_hydrograph_plot.html" height="600" width="800">
+
+Root Mean Squared Error (RMSE) stands out as a concerning value. 116.297mm is a large error value, especially when the peak SWE value across the watershed may only reach 400-500mm in a given water year. However, as shown in the plot above, the model is able to predict SWE accumulation and peak fairly accurately. The greatest errors are at the beginning of each winter season, when observed SWE is sometimes much greater than the predicted SWE. Predicted SWE is able to catch back up fairly quickly once the winter begins. The accuracy gap is likely due to an artificial cutoff in the dataset: I only included data from October 1 - June 1 of each water year. However, snow can easily begin to fall and accumulate before October 1 in Montana; because of this, observed SWE might already be positive on Oct 1 when the model has almost no information to work on, which makes it extremely difficult for the model to predict. This accuracy gap is likely the source of the high RMSE, and means that the model is still fairly accurate. Including additional data would also likely improve model accuracy.
+
+<embed type="text/html" src="./projects/predicting_swe_with_machine_learning/spatial_station_error.html" height="600" width="800">
+
+Finally, there are distinct stations that introduce more error to the model than others. For example, as seen in the plot above, station 436 on the far west of the study area has over double the mean bias error as the next worst performing station. This station is located very close to the Continental Divide at high elevation; however, the plot below shows that elevation is not associated with higher error. This station may be affected by some climate pattern that the rest of the dataset is not, or there might be an error in the station record, as another station nearby performs well. Regardless of the reason, dropping the lowest performing station could help improve model performance.
+
+<embed type="text/html" src="./projects/predicting_swe_with_machine_learning/station_scatter.html" height="600" width="800">
+
+#### 4b: Feature Engineering
+
+<embed type="text/html" src="./projects/predicting_swe_with_machine_learning/feature_importance_plot.html" height="600" width="800">
+
+As shown in the plot above, there are four features that are distinctly more important in the model than others. Interestingly, none are the raw PRISM data. Cumulative precipitation is by far the most important, followed by cumulative degrees above freezing (labeled cumulative melt days in the graph). These features accord with common understanding of snowpack; the cumulative precipitation and heat have a major impact on a snowpack throughout a winter. Interestingly, the rolling 7-day windows highlighted by Alabi et. al 2026 were not particularly important to the model.
+
+#### 4c: Limitations
 
 There are important limitations to recognize in this study. First, the use of SNOTEL sites introduces a number of points of bias. SNOTEL stations are located in specific areas - typically flat subalpine meadows or clearings. These sites are subject to very different weather patterns than other parts of the study area (alpine zones, ridgelines, cirques, etc.). Thus, the underlying relationship between SWE and the climatic and temporal drivers that the ML model identifies might not translate to other areas within the study area. The application of the ML model to the entire study area is highly dependent on the assumption that the aforementioned relationship is static; obviously, this is a major assumption. However, gathering suitable data to drive the model from more heterogeneous areas remains a significant challenge to snow science, and the SNOTEL dataset doesn't currently have a suitable competitor.
 
@@ -70,7 +103,11 @@ Additional feature engineering could be helpful as well. Rain-on-snow events can
 
 ## 5: Conclusion
 
-There are two avenues for future work on this project. First, developing an ensemble approach could improve model accuracy and better capture the full range of snowpack dynamics. Studies such as O'Flaherty 2025 strongly suggest that this approach is preferable, and once data has been prepared, adding more ML algorithms shouldn't be hugely time-intensive. Second, the ML  model could be applied to future climate model data, such as MACA data. MACA downscaled models share the same grid resolution as the PRISM data, which should make for an easy application. Applying the ML model to MACA data would be reliant on some assumptions, such as assuming that the relationship between climate drivers and SWE in the Missouri Headwaters is stationary, but this would be an easy window into future snowpack trends, and likely impacts on water use in the region.
+The goal of this project was to develop a machine learning model that was capable of predicting snow-water equivalent. If successful, this model could be used to better understand trends - historic and future - in how water is stored in the Rocky Mountains as snow. As shown, the project was largely successful. A Random Forests algorithm was trained using SNOTEL records and PRISM reanalysis to develop a model that is capable of predicting SWE across the Missouri Headwaters watershed. While some error statistics are not ideal, the model has been shown to be fairly accurate in predicting SWE. Further, it is quite likely that the issues highlighted by the high RMSE value is largely driven by the artificial cutoff in the dataset. Future work should extend the training time period to help mitigate error; a period of September 1-July 1, for example, would give the model more information to train on.
+
+There are two avenues for future work on this project. First, developing an ensemble approach could improve model accuracy and better capture the full range of snowpack dynamics. Studies such as O'Flaherty 2025 strongly suggest that this approach is preferable. Other studies have averaged results of decision tree and gradient boosting algorithms, such as CatBoost, LightBoost, and XGBoost; the differences inherent in the algorithms could help capture more of the variance of the SNOTEL dataset. Once data has been prepared, adding more ML algorithms won't be very time-intensive. 
+
+Second, the ML  model could be applied to future climate model data, such as MACA data. This project was intentionally designed with application to the MACA dataset in mind. MACA downscaled models share the same grid resolution as the PRISM data, which should make for an easy application. Now that the model has been developed, the only barrier to this step is acquiring and preparing the MACA data. However, applying the ML model to MACA data would be reliant on some assumptions, such as assuming that the relationship between climate drivers and SWE in the Missouri Headwaters is stationary. Employing the ML model developed in this project to gain insight on future SWE trends would be hugely valuable, and give insight on how snowpack will continue to evolve in the Missouri Headwaters as climate change progresses.
 
 ## 6: References
 
