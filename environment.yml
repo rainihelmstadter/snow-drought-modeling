@@ -5,23 +5,31 @@ channels:
 
 dependencies:
 - python=#check version!
-- os
-- pathlib
-- pandas
+- datetime
+- earthaccess
 - geopandas
-- xarray
-- rioxarray
 - holoviews
 - hvplot
 - matplotlib
-- requests
-- time
-- tqdm
+- math
+- numpy
+- os
+- pathlib
+- pandas
+- panel
+- pickle
 - pygeohydro
 - pyarrow
+- rasterio
+- requests
+- rioxarray
 - shapely
 - sklearn
-- xgboost
+- sys
+- time
+- tqdm
+- xarray
+- zipfile
 
 # Use pip to install src folder
 - pip
