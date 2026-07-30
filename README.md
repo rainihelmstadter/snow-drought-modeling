@@ -15,9 +15,9 @@ This project will use machine learning to model snow-water equivalent (SWE) acro
 | Dataset | Access | Resolution | Time Period |
 | --- | --- | --- | --- |
 | SNOTEL historical daily SWE, temp, precip time series | USDA AWDB API | point location | 1991-2020 |
-| USGS Digital Elevation Model | TNM Access API | unknown resolution now | stationary data |
+| BCQC SNOTEL Dataset | [PNNL website](https://www.pnnl.gov/projects/distributed-hydrology-soil-vegetation-model/data-products) | point location | 1991-2020 |
+| SRTM Digital Elevation Model | EarthAccess API | 30 arc second | stationary data |
 | PRISM gridded historical climate data | PRISM Climate Group API | 4km | 1991-2020 |
-| MACAv2 downscaled future climate data | MACA Thredds server | 4km | 2035-2065 |
 
 ### Usage
 
@@ -31,8 +31,9 @@ This repository contains a few important files and folders:
 Notebooks:
 - 01: Used to define a geographic study area and download SNOTEL data that accords to the study area. I selected the HUC6 Missouri Headwaters watershed, but a different watershed could be downloaded instead.
 - 02: Used to download PRISM daily rasters and extract data that falls into the study area.
-- 03: Used to download a Digital Elevation Model
-- further notebooks are in development 
+- 03: Used to download a Digital Elevation Model.
+- 04: Prepares PRISM, SNOTEL, and DEM data for input into machine learning model.
+- 05: Uses prepared datasets to train a machine learning model, predict SWE from PRISM data, and analyze predictions.
 
 A few notes on usage: 
 - the BCQC SNOTEL dataset cannot be downloaded via API. You must download it manually and place the unzipped files into the raw data folder. The dataset is accessed [on the PNNL website](https://www.pnnl.gov/projects/distributed-hydrology-soil-vegetation-model/data-products).
