@@ -10,6 +10,7 @@ dependencies:
 - geopandas
 - holoviews
 - hvplot
+- lightgbm
 - matplotlib
 - math
 - numpy
@@ -29,6 +30,7 @@ dependencies:
 - time
 - tqdm
 - xarray
+- xgboost
 - zipfile
 
 # Use pip to install src folder

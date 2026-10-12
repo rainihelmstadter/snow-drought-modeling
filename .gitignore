@@ -2,6 +2,7 @@
 reading/
 code/cache/
 writing/drafts
+trained-models/
 
 # Data
 data/
@@ -11,6 +12,7 @@ data/
 *.tif
 *.tiff
 *.csv
+*.joblib
 
 # Environment Artifacts
 __pycache__/
