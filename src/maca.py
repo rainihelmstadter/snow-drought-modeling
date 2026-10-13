@@ -3,6 +3,54 @@ This script contains functions to download and process MACAv2 climate data. It c
 * download_maca_data: Utilizes variables to access specific sections of the MACA dataset, download, preprocess, and save data to file.
 '''
 
+# Library Imports
+import os
+import pandas as pd
+import xarray as xr
+import rioxarray as rxr
+import tqdm
+
+#----------------------------------------------------------------
+
+# convert temp from Kelvin to F function
+def convert_K_to_F(da):
+    '''
+    Converts an xarray DataArray from Kelvin to Fahrenheit 
+
+    Args:
+    da (DataArray):
+        DA of temperature values
+    '''
+
+    # Perform conversion pixel-wise
+    da_f = (da * 1.8) - 459.67
+    
+    return da_f
+
+#----------------------------------------------------------------
+
+# convert longitude
+def convert_longitude(longitude):
+
+    '''
+    This function cleans up datasets read from NetCDF files 
+    in order to work with the other datasets used in this notebook.
+    It converts lon from 0 to 360 to -180 to 180 
+
+    Args:
+    =====
+    longitude (DataArray):
+        DA from larger Dataset that contains longitude data
+
+    Returns:
+    ========
+    longitude (DataArray)
+    '''
+
+    return longitude - 360 if longitude > 180 else longitude 
+
+#----------------------------------------------------------------
+
 # Function to download MACA data
 def download_maca_data(
         site_gdf, site_name,
@@ -16,7 +64,7 @@ def download_maca_data(
     Processing includes clipping bounds and rewriting longitude values
 
     ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    NEED TO ENSURE KELVIN CONVERSION HAPPENS HERE TOO
+    NEED TO ENSURE KELVIN CONVERSION AND LONGITUDE FIX HAPPENS HERE TOO
     ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     
     Args:
