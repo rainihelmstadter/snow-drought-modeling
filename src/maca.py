@@ -6,16 +6,19 @@ This script contains functions to download and process MACAv2 climate data. It c
 # Library Imports
 import os
 import pandas as pd
+import numpy as np
 import xarray as xr
 import rioxarray as rxr
 import tqdm
 
+import datetime as dt
+
 #----------------------------------------------------------------
 
-# convert temp from Kelvin to F function
-def convert_K_to_F(da):
+# convert temp from Kelvin to C function
+def convert_K_to_C(da):
     '''
-    Converts an xarray DataArray from Kelvin to Fahrenheit 
+    Converts an xarray DataArray from Kelvin to Celcius 
 
     Args:
     da (DataArray):
@@ -23,9 +26,9 @@ def convert_K_to_F(da):
     '''
 
     # Perform conversion pixel-wise
-    da_f = (da * 1.8) - 459.67
+    da_c = da - 273.15
     
-    return da_f
+    return da_c
 
 #----------------------------------------------------------------
 
@@ -47,7 +50,7 @@ def convert_longitude(longitude):
     longitude (DataArray)
     '''
 
-    return longitude - 360 if longitude > 180 else longitude 
+    return xr.where(longitude > 180, longitude - 360, longitude )
 
 #----------------------------------------------------------------
 
@@ -93,14 +96,14 @@ def download_maca_data(
     result_paths = []
 
     # count total steps for progress bar
-    total_steps = len(models)
+    total_steps = len(models) * len(variables)
 
     # make a bounding box
     xmin, ymin, xmax, ymax = site_gdf.total_bounds
 
-    # convert lon to 0-360 to match MACAv2 data standards
-    min_lon_360 = xmin + 360
-    max_lon_360 = xmax + 360
+    # convert lon to 0-360 to match MACAv2 data standards, add a tiny buffer to preserve edge pixels
+    min_lon_360 = (xmin - 0.05) + 360
+    max_lon_360 = (xmax + 0.05) + 360
 
     # set fixed catalog years for the MACA url
     catalog_years = "1950_2005" if rcp_value == "historical" else "2006_2099"
@@ -132,20 +135,36 @@ def download_maca_data(
                         time = slice(start_date, end_date),
                         lon = slice(min_lon_360, max_lon_360),
                         # select lat regardless of direction it's counted
-                        lat = slice(ymin, ymax)) if lazy_ds.lat[0] < lazy_ds.lat[-1] else slice(ymax, ymin)
+                        lat = slice(ymin, ymax) if lazy_ds.lat[0] < lazy_ds.lat[-1] else slice(ymax, ymin))
 
                     # compute request and download subset to RAM
                     maca_360_ds = subset_ds.compute()
+                    
+                    # drop unneeded dates
+                    is_wy_season = (
+                        maca_360_ds.time.dt.month >= 10) | (maca_360_ds.time.dt.month <= 5) | (
+                        (maca_360_ds.time.dt.month == 6) & (maca_360_ds.time.dt.day == 1))
+                    maca_360_wint_ds = maca_360_ds.sel(time=is_wy_season)
 
                     # Standardize MACA ds lon back to -180 to 180
-                    maca_ds = maca_360_ds.assign_coords(lon=((maca_360_ds.lon + 180) % 360) - 180).sortby('lon')
+                    maca_ds_K = maca_360_wint_ds.assign_coords(lon=convert_longitude(maca_360_wint_ds.lon)).sortby('lon')
+
+                    # convert K to C
+                    if variable == 'tasmin' or variable =='tasmax':
+                        maca_ds = convert_K_to_C(maca_ds_K.air_temperature)
+                    else:
+                        continue
 
                     # Set spatial dims, CRS, and NaNs
                     maca_ds.rio.write_crs('EPSG:4326', inplace=True)
                     maca_ds.rio.set_spatial_dims(x_dim = 'lon', y_dim = 'lat', inplace=True)
+
+                    # clip to exact study boundary
+                    maca_ds.rio.clip(site_gdf.geometry, site_gdf.crs, drop = True)
+
                     # ensure NaNs are read as NaNs
-                    if var in maca_ds.data_vars:
-                        maca_ds[var].rio.write_nodata(np.nan, inplace=True)
+                    if variable in maca_ds.data_vars:
+                        maca_ds[variable].rio.write_nodata(np.nan, inplace=True)
 
                     # Save MACA data to raw data dir
                     maca_ds.to_netcdf(maca_path)
