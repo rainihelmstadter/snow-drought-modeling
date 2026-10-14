@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import rioxarray as rxr
-import tqdm
+from tqdm import tqdm
 
 import datetime as dt
 
@@ -108,11 +108,22 @@ def download_maca_data(
     # set fixed catalog years for the MACA url
     catalog_years = "1950_2005" if rcp_value == "historical" else "2006_2099"
 
+    # Lookup for MACA's internal NetCDF variable names
+    maca_var_names = {
+        'tasmax': 'air_temperature',
+        'tasmin': 'air_temperature',
+        'pr': 'precipitation'
+    }
+
     # download and process files
-    with tqdm(total=total_steps, desc=f"Processing {site_name}") as pbar:
+    with tqdm(total=total_steps, desc=f"Processing: ") as pbar:
         # loop through models
         for model in models:
             for variable in variables:
+                # set tqdm update
+                pbar.set_description(f"Processing: {model} ({variable})")
+
+                # set opendap url to download from
                 opendap_url = (f'http://thredds.northwestknowledge.net:8080/thredds/dodsC/'
                             f'agg_macav2metdata_{variable}_{model}_r1i1p1_{rcp_value}'
                             f'_{catalog_years}_CONUS_daily.nc')
@@ -124,8 +135,8 @@ def download_maca_data(
                 # Download or open file
                 if not os.path.exists(maca_path):
 
-                    # Send progress warning
-                    print(f"{variable}, {model}, {start_date}_{end_date}, {rcp_value} has not been downloaded.")
+                    # # Send progress warning
+                    # print(f"{variable} - {model} - {start_date} - {end_date} has not been downloaded.")
 
                     # Load metadata for dataset
                     lazy_ds = xr.open_dataset(opendap_url, mask_and_scale = True)
@@ -135,7 +146,7 @@ def download_maca_data(
                         time = slice(start_date, end_date),
                         lon = slice(min_lon_360, max_lon_360),
                         # select lat regardless of direction it's counted
-                        lat = slice(ymin, ymax) if lazy_ds.lat[0] < lazy_ds.lat[-1] else slice(ymax, ymin))
+                        lat = slice(ymin - 0.05, ymax + 0.05) if lazy_ds.lat[0] < lazy_ds.lat[-1] else slice(ymin - 0.05, ymax + 0.05))
 
                     # compute request and download subset to RAM
                     maca_360_ds = subset_ds.compute()
@@ -145,35 +156,38 @@ def download_maca_data(
                         maca_360_ds.time.dt.month >= 10) | (maca_360_ds.time.dt.month <= 5) | (
                         (maca_360_ds.time.dt.month == 6) & (maca_360_ds.time.dt.day == 1))
                     maca_360_wint_ds = maca_360_ds.sel(time=is_wy_season)
+                    
+                    # rename internal variable ('air_temperature'/'precipitation') to 'tasmax'/'tasmin'/'pr'
+                    internal_name = list(maca_360_wint_ds.data_vars)[0]
+                    maca_360_wint_ds = maca_360_wint_ds.rename({internal_name: variable})
 
                     # Standardize MACA ds lon back to -180 to 180
-                    maca_ds_K = maca_360_wint_ds.assign_coords(lon=convert_longitude(maca_360_wint_ds.lon)).sortby('lon')
+                    maca_ds = maca_360_wint_ds.assign_coords(lon=convert_longitude(maca_360_wint_ds.lon)).sortby('lon')
 
                     # convert K to C
-                    if variable == 'tasmin' or variable =='tasmax':
-                        maca_ds = convert_K_to_C(maca_ds_K.air_temperature)
-                    else:
-                        continue
+                    if variable in ['tasmin', 'tasmax']:
+                        maca_ds[variable] = convert_K_to_C(maca_ds[variable])
 
                     # Set spatial dims, CRS, and NaNs
                     maca_ds.rio.write_crs('EPSG:4326', inplace=True)
                     maca_ds.rio.set_spatial_dims(x_dim = 'lon', y_dim = 'lat', inplace=True)
+                    maca_ds[variable].rio.write_nodata(np.nan, inplace=True)
 
                     # clip to exact study boundary
-                    maca_ds.rio.clip(site_gdf.geometry, site_gdf.crs, drop = True)
+                    maca_clip_ds = maca_ds.rio.clip(site_gdf.geometry, site_gdf.crs, drop = True)
 
-                    # ensure NaNs are read as NaNs
-                    if variable in maca_ds.data_vars:
-                        maca_ds[variable].rio.write_nodata(np.nan, inplace=True)
+                    # # ensure NaNs are read as NaNs
+                    # if variable in maca_ds.data_vars:
+                    #     maca_ds[variable].rio.write_nodata(np.nan, inplace=True)
 
                     # Save MACA data to raw data dir
-                    maca_ds.to_netcdf(maca_path)
+                    maca_clip_ds.to_netcdf(maca_path)
 
                     # Progress notification
-                    print(f"{variable}, {model}, {start_date}_{end_date}, {rcp_value} has been downloaded!.")
+                    tqdm.write(f"{variable} | {model} | {start_date} - {end_date} | {rcp_value} has been downloaded!.")
                 else:
                     # Notification
-                    print(f"{variable}, {model}, {start_date}_{end_date}, {rcp_value} already exists.")
+                    tqdm.write(f"{variable} | {model} | {start_date} - {end_date} | {rcp_value} already exists.")
 
                 # append MACA path to results so the datasets can be opened easily
                 result_paths.append(maca_path)
