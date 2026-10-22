@@ -164,6 +164,9 @@ def download_maca_data(
                     # Standardize MACA ds lon back to -180 to 180
                     maca_ds = maca_360_wint_ds.assign_coords(lon=convert_longitude(maca_360_wint_ds.lon)).sortby('lon')
 
+                    # Drop stale grid_mapping attributes that point to missing server coordinates
+                    maca_ds[variable].attrs.pop('grid_mapping', None)
+
                     # convert K to C
                     if variable in ['tasmin', 'tasmax']:
                         maca_ds[variable] = convert_K_to_C(maca_ds[variable])
@@ -184,10 +187,10 @@ def download_maca_data(
                     maca_clip_ds.to_netcdf(maca_path)
 
                     # Progress notification
-                    tqdm.write(f"{variable} | {model} | {start_date} - {end_date} | {rcp_value} has been downloaded!.")
+                    tqdm.write(f"{variable} | {model} | {start_date} - {end_date} | {rcp_value} | has been downloaded!.")
                 else:
                     # Notification
-                    tqdm.write(f"{variable} | {model} | {start_date} - {end_date} | {rcp_value} already exists.")
+                    tqdm.write(f"{variable} | {model} | {start_date} - {end_date} | {rcp_value} | already exists.")
 
                 # append MACA path to results so the datasets can be opened easily
                 result_paths.append(maca_path)

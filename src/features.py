@@ -13,10 +13,14 @@ It contains the following functions:
 * reorder_df_vars: Ensures dataframe variables are in the appropriate order
 '''
 
+# Import Libraries
+#----------------------------------------------------------------
+
 import numpy as np
 import pandas as pd
 import xarray as xr
 
+#----------------------------------------------------------------
 # Helper functions
 #----------------------------------------------------------------
 
@@ -62,9 +66,7 @@ def roll_sum_da(da, num_days):
 
     return rolling_sum_da
 #----------------------------------------------------------------
-
 # Feature Engineering Functions
-
 #----------------------------------------------------------------
 
 def add_water_year(ds, time_dim='time'):
@@ -169,9 +171,9 @@ def add_rolling_features(ds, num_days_list=[3, 7]):
     
     for days in num_days_list:
         # Pass the function name to .map() without parentheses to prevent eager execution
-        new_features[f'tmin_roll{days}_c'] = ds['tmin'].groupby('water_year').map(roll_mean_safe, num_days=days)
-        new_features[f'tmax_roll{days}_c'] = ds['tmax'].groupby('water_year').map(roll_mean_safe, num_days=days)
-        new_features[f'ppt_roll{days}_mm'] = ds['ppt'].groupby('water_year').map(roll_sum_safe, num_days=days)
+        new_features[f'tmin_roll{days}_c'] = ds['tmin'].groupby('water_year').map(roll_mean_da, num_days=days)
+        new_features[f'tmax_roll{days}_c'] = ds['tmax'].groupby('water_year').map(roll_mean_da, num_days=days)
+        new_features[f'ppt_roll{days}_mm'] = ds['ppt'].groupby('water_year').map(roll_sum_da, num_days=days)
         
     return ds.assign(**new_features)
 
