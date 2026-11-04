@@ -354,16 +354,6 @@ def plot_basin_vol_grid_matplotlib(
     return fig
 
 # --------------------------------------------------------------------------------
-# Spatial Plot helper and wrappers
-
-
-
-import numpy as np
-import pandas as pd
-import xarray as xr
-
-
-# --------------------------------------------------------------------------------
 # April 1 vs true peak SWE
 
 def compute_peak_vs_apr1_df(
@@ -599,3 +589,99 @@ def print_gap_diagnostics(df: pd.DataFrame, label: str):
         f"  Mean Peak Timing:       DOWY {mean_dowy:.1f} (~{mean_dowy - 183:+.1f}"
         " days relative to April 1)\n"
     )
+
+# --------------------------------------------------------------------------------
+# Spatial Plot helper and wrappers
+
+def _make_single_swe_plot(terrain, reference, name, ds, quant_099_swe):
+    '''
+    Helper function to make plots.
+
+    Args:
+    -----
+    terrain (hvplot.element):
+        Plot of terrain in study area
+    reference (hvplot.element):
+        Plot of reference markers in study area
+    name (str):
+        Dataset name.
+    ds (rioxarray.dataset)
+        Dataset containing swe data
+    quant_099_swe (float):
+        Float of 99th percentile swe.
+
+    Retuns:
+    -------
+    hvplot.image
+    '''
+
+    # make swe layer
+    swe_layer = ds['swe_pred'].hvplot.image(
+        geo = True,
+        cmap = 'Sunset_r',
+        title = f'{name}',
+        xlabel = 'Longitude',
+        ylabel = 'Latitude',
+        clim = (0, quant_099_swe),
+        colorbar = True,
+        clabel = 'SWE Depth (mm)',
+        alpha = 0.7,
+        width = 550,
+        height = 500
+    )
+
+    # overlay terrain, swe, and reference
+    swe_plot = terrain * swe_layer * reference
+
+    return swe_plot
+   
+
+def make_spatial_swe_plots(panel_configs, gdf, sup_title, output_path = None):
+    '''
+    Make a plot of two subplots showing spatial mean SWE on April 1 
+    (or different day, depending on data preparation) for PRISM and MACA data.
+
+    Args:
+    -----
+    panel_configs (dict):
+        Dict containing prism and maca rioxarray.Datasets and names to be used in plotting.
+    gdf (geopandas.GeoDataFrame):
+        gdf of study area boundary.
+    sup_title (str):
+        Title of plot to be used.
+    output_path (str):
+        filename and path to be used to save the plot. Optional; defaults to None.
+
+    Returns:
+    --------
+    pn.Column()
+    '''
+
+    # make basemaps
+    terrain = hv.element.tiles.EsriTerrain()
+    reference = hv.element.tiles.EsriReference()
+
+    # get 99th percentile swe for april 1 in maca and prism
+    quant_099_swe = max(float(ds['swe_pred'].quantile(0.99)) for _, ds in panel_configs)
+
+    # make plots
+    plots = [_make_single_swe_plot(terrain, reference, title, ds, quant_099_swe)
+                for title, ds in panel_configs
+            ]
+    
+    # assemble panels into a 2-column linked layout
+    grid = hv.Layout(plots).cols(2)
+
+    # set title
+    plot_title = pn.pane.Markdown(f'### {sup_title}', align='center')
+    layout = pn.Column(plot_title, grid)
+
+    # save plot if output path provided
+    if output_path:
+        hv.save(layout, output_path)
+    
+    # return the panel with title and subplots
+    return layout
+       
+        
+
