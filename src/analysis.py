@@ -593,7 +593,8 @@ def print_gap_diagnostics(df: pd.DataFrame, label: str):
 # --------------------------------------------------------------------------------
 # Spatial Plot helper and wrappers
 
-def _make_single_swe_plot(terrain, reference, name, ds, quant_099_swe):
+# Single plot helper
+def _make_single_swe_plot(terrain, reference, boundary, name, ds, cmap, clim_limits, clabel):
     '''
     Helper function to make plots.
 
@@ -603,12 +604,18 @@ def _make_single_swe_plot(terrain, reference, name, ds, quant_099_swe):
         Plot of terrain in study area
     reference (hvplot.element):
         Plot of reference markers in study area
+    boundary (hvplot.Line):
+        Line plot of study area boundary.
     name (str):
         Dataset name.
     ds (rioxarray.dataset)
         Dataset containing swe data
-    quant_099_swe (float):
-        Float of 99th percentile swe.
+    cmap (str):
+        Specified cmap to use.
+    clim_limits (tuple):
+        Shared clim values.
+    clabel (str):
+        Shared colorbar label.
 
     Retuns:
     -------
@@ -618,25 +625,25 @@ def _make_single_swe_plot(terrain, reference, name, ds, quant_099_swe):
     # make swe layer
     swe_layer = ds['swe_pred'].hvplot.image(
         geo = True,
-        cmap = 'Sunset_r',
+        cmap = cmap,
         title = f'{name}',
         xlabel = 'Longitude',
         ylabel = 'Latitude',
-        clim = (0, quant_099_swe),
+        clim = clim_limits,
         colorbar = True,
-        clabel = 'SWE Depth (mm)',
+        clabel = clabel,
         alpha = 0.7,
         width = 550,
         height = 500
     )
 
     # overlay terrain, swe, and reference
-    swe_plot = terrain * swe_layer * reference
+    swe_plot = terrain * swe_layer * boundary * reference
 
     return swe_plot
    
-
-def make_spatial_swe_plots(panel_configs, gdf, sup_title, output_path = None):
+# Wrapper function
+def make_spatial_swe_plots(panel_configs, gdf, sup_title, is_anomaly = False, output_path = None):
     '''
     Make a plot of two subplots showing spatial mean SWE on April 1 
     (or different day, depending on data preparation) for PRISM and MACA data.
@@ -661,14 +668,45 @@ def make_spatial_swe_plots(panel_configs, gdf, sup_title, output_path = None):
     terrain = hv.element.tiles.EsriTerrain()
     reference = hv.element.tiles.EsriReference()
 
-    # get 99th percentile swe for april 1 in maca and prism
-    quant_099_swe = max(float(ds['swe_pred'].quantile(0.99)) for _, ds in panel_configs)
+    # make boundary plot
+    boundary_line = (
+        gdf.hvplot(geo=True, fill_color=None, line_color="black", line_width=1.5)
+        if gdf is not None
+        else hv.Overlay()
+    )
+
+    # get colorbar limits
+    if is_anomaly:
+        cmap = 'RdBu'
+        clabel = 'ΔSWE Depth (mm)'
+        # Find maximum absolute deviation across all panels for symmetric color limits
+        max_dev = max(
+            max(
+                abs(float(ds["swe_pred"].min())),
+                abs(float(ds["swe_pred"].max())),
+            )
+            for _, ds in panel_configs
+        )
+        clim_limits = (-max_dev, max_dev)
+    else:
+        cmap = 'Sunset_r'
+        clabel = 'SWE Depth (mm)'    
+        # get 99th percentile swe for april 1 in maca and prism
+        quant_099_swe = max(float(ds['swe_pred'].quantile(0.99)) for _, ds in panel_configs)
+        clim_limits = (0, quant_099_swe)
 
     # make plots
-    plots = [_make_single_swe_plot(terrain, reference, title, ds, quant_099_swe)
-                for title, ds in panel_configs
-            ]
-    
+    plots = [_make_single_swe_plot(
+        terrain,
+        reference,
+        boundary_line,
+        name,
+        ds,
+        cmap,
+        clim_limits,
+        clabel
+        ) for name, ds in panel_configs] 
+
     # assemble panels into a 2-column linked layout
     grid = hv.Layout(plots).cols(2)
 
@@ -678,10 +716,282 @@ def make_spatial_swe_plots(panel_configs, gdf, sup_title, output_path = None):
 
     # save plot if output path provided
     if output_path:
-        hv.save(layout, output_path)
+        layout.save(output_path)
     
     # return the panel with title and subplots
     return layout
-       
-        
 
+# Anomaly calculation
+def calculate_swe_anomalies(prism_ds, maca_dict, swe_var = 'swe_pred'):
+    '''
+    Calculate SWE anomaly between PRISM and MACA datasets. 
+    This function will use nearest neighbor snapping to align the two grids
+    and then calculate the anomaly. The PRISM grid is aligned to the MACA grid;
+    this is chosen because MACA has multiple datasets, and is derived from model
+    products, while PRISM has one dataset and is derived from observational records.
+    Reindexing to the MACA grid obviously may add some bias, but should introduce 
+    less bias than reindexing to the PRISM grid. Nearest neighbor is used rather 
+    than various interpolation methods to also reduce bias introduction.
+
+    Args:
+    -----
+    prism_ds (xarray.Dataset):
+        DS containing PRISM data
+    maca_dict (dict):
+        dictionary containing MACA Datasets
+    swe_var (str):
+        Name of swe variable. Defaults to 'swe_pred'.
+
+    Returns:
+    --------
+    dictionary of xarray.Datasets containing calculated anomalies
+    xarray.Dataset containing reindexed prism baseline
+    '''
+
+    # grab a template from MACA ds
+    template_ds = next(iter(maca_dict.values()))
+
+    # reindex PRISM to MACA template_ds
+    prism_rein_ds = prism_ds.reindex_like(template_ds, method = 'nearest')
+
+    # mask areas where MACA and PRISM both have data values
+    shared_mask =  prism_rein_ds[swe_var].notnull() & template_ds[swe_var].notnull()
+
+    # apply mask to PRISM baseline
+    prism_mask_da = prism_rein_ds[swe_var].where(shared_mask)
+    prism_baseline_ds = xr.Dataset(
+       data_vars = {swe_var: prism_mask_da}, 
+       coords = template_ds.coords 
+    )
+
+    # calculate anomalies
+
+    # init anomaly dict
+    maca_anomaly_dict = {}
+
+    # loop through MACA models
+    for name, ds in maca_dict.items():
+        maca_mask_da = ds[swe_var].where(shared_mask)
+        delta_swe_da = maca_mask_da - prism_mask_da
+
+        # store metadata
+        delta_swe_da.name = 'delta_swe_mm'
+        delta_swe_da.attrs['units'] = 'mm'
+
+        # convert to dataset
+        delta_swe_ds = xr.Dataset(
+           data_vars = {swe_var: delta_swe_da},
+           coords = template_ds.coords
+        )
+
+        # preserve CRS metadata
+        delta_swe_ds = delta_swe_ds.rio.write_crs(template_ds.rio.crs)
+        delta_swe_ds = delta_swe_ds.rio.set_spatial_dims(
+            x_dim="longitude", y_dim="latitude"
+        )
+        
+        # store data
+        maca_anomaly_dict[name] = delta_swe_ds
+
+    # store CRS metadata for PRISM too
+    prism_baseline_ds = prism_baseline_ds.rio.write_crs(template_ds.rio.crs)
+    prism_baseline_ds = prism_baseline_ds.rio.set_spatial_dims(
+        x_dim="longitude", y_dim="latitude")
+
+    return maca_anomaly_dict, prism_baseline_ds
+
+
+# --------------------------------------------------------------------------------
+# Monthly SWE boxplot helper and wrappers
+# from Gemini:
+
+def extract_monthly_basin_swe_df(
+    prism_ds: xr.Dataset,
+    maca_dict: Dict[str, xr.Dataset],
+    swe_var: str = "swe_pred",
+    pixel_area_km2: float = 16.0,
+) -> pd.DataFrame:
+  """Aggregates daily SWE into annual monthly mean basin depth (mm)
+
+  and volume (km³) across water years for PRISM and MACA datasets.
+  """
+  records = []
+
+  # 1. PRISM Baseline aggregation
+  p_depth = (
+      prism_ds[swe_var]
+      .mean(dim=["latitude", "longitude"], skipna=True)
+      .compute()
+  )
+  p_vol = (
+      (prism_ds[swe_var] * 1e-6 * pixel_area_km2)
+      .sum(dim=["latitude", "longitude"], skipna=True)
+      .compute()
+  )
+
+  p_daily = pd.DataFrame({
+      "date": pd.to_datetime(prism_ds["date"].values),
+      "water_year": prism_ds["water_year"].values,
+      "swe_mm": p_depth.values,
+      "volume_km3": p_vol.values,
+      "dataset": "PRISM Baseline (1991–2020)",
+      "model": "PRISM",
+  })
+  p_daily["month"] = p_daily["date"].dt.month
+  records.append(p_daily)
+
+  # 2. MACA Models & Ensemble Mean aggregation
+  for model_name, ds in maca_dict.items():
+    m_depth = (
+        ds[swe_var].mean(dim=["latitude", "longitude"], skipna=True).compute()
+    )
+    m_vol = (
+        (ds[swe_var] * 1e-6 * pixel_area_km2)
+        .sum(dim=["latitude", "longitude"], skipna=True)
+        .compute()
+    )
+
+    m_daily = pd.DataFrame({
+        "date": pd.to_datetime(ds["date"].values),
+        "water_year": ds["water_year"].values,
+        "swe_mm": m_depth.values,
+        "volume_km3": m_vol.values,
+        "dataset": (
+            "MACA Ensemble Mean"
+            if model_name == "Ensemble_Mean"
+            else f"MACA: {model_name}"
+        ),
+        "model": model_name,
+    })
+    m_daily["month"] = m_daily["date"].dt.month
+    records.append(m_daily)
+
+  all_daily = pd.concat(records, ignore_index=True)
+
+  # Filter to core snow accumulation and melt season (October to June)
+  snow_months = [10, 11, 12, 1, 2, 3, 4, 5, 6]
+  all_daily = all_daily[all_daily["month"].isin(snow_months)]
+
+  # Calculate annual monthly averages per water year
+  monthly_df = (
+      all_daily.groupby(["dataset", "model", "water_year", "month"])[
+          ["swe_mm", "volume_km3"]
+      ]
+      .mean()
+      .reset_index()
+  )
+
+  # Map Water Year chronological order (Oct = 1 ... Jun = 9)
+  month_order = {10: 1, 11: 2, 12: 3, 1: 4, 2: 5, 3: 6, 4: 7, 5: 8, 6: 9}
+  month_abbr = {
+      10: "Oct",
+      11: "Nov",
+      12: "Dec",
+      1: "Jan",
+      2: "Feb",
+      3: "Mar",
+      4: "Apr",
+      5: "May",
+      6: "Jun",
+  }
+  monthly_df["wy_month_idx"] = monthly_df["month"].map(month_order)
+  monthly_df["month_name"] = monthly_df["month"].map(month_abbr)
+  monthly_df.sort_values(by=["dataset", "wy_month_idx"], inplace=True)
+
+  return monthly_df
+
+
+def plot_monthly_swe_boxplots(
+    monthly_df: pd.DataFrame,
+    var_col: str = "volume_km3",
+    output_path: Optional[Union[str, Path]] = None,
+) -> plt.Figure:
+  """Side-by-side boxplots comparing PRISM baseline against MACA Ensemble Mean."""
+  subset = monthly_df[
+      monthly_df["model"].isin(["PRISM", "Ensemble_Mean"])
+  ].copy()
+
+  months = ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+  positions = np.arange(len(months))
+  width = 0.35
+
+  fig, ax = plt.subplots(figsize=(14, 6))
+
+  prism_series = [
+      subset[(subset["model"] == "PRISM") & (subset["month_name"] == m)][
+          var_col
+      ].dropna()
+      for m in months
+  ]
+  maca_series = [
+      subset[
+          (subset["model"] == "Ensemble_Mean") & (subset["month_name"] == m)
+      ][var_col].dropna()
+      for m in months
+  ]
+
+  bp_prism = ax.boxplot(
+      prism_series,
+      positions=positions - width / 2,
+      widths=width * 0.85,
+      patch_artist=True,
+      boxprops=dict(facecolor="#2b5c8f", color="black", alpha=0.85),
+      medianprops=dict(color="yellow", linewidth=1.8),
+      whiskerprops=dict(color="black", linewidth=1.2),
+      capprops=dict(color="black", linewidth=1.2),
+      flierprops=dict(
+          marker="o", markersize=3.5, alpha=0.5, markeredgecolor="none"
+      ),
+  )
+
+  bp_maca = ax.boxplot(
+      maca_series,
+      positions=positions + width / 2,
+      widths=width * 0.85,
+      patch_artist=True,
+      boxprops=dict(facecolor="#b83b3b", color="black", alpha=0.85),
+      medianprops=dict(color="yellow", linewidth=1.8),
+      whiskerprops=dict(color="black", linewidth=1.2),
+      capprops=dict(color="black", linewidth=1.2),
+      flierprops=dict(
+          marker="o", markersize=3.5, alpha=0.5, markeredgecolor="none"
+      ),
+  )
+
+  ax.set_xticks(positions)
+  ax.set_xticklabels(months, fontsize=11, fontweight="bold")
+  ylabel = (
+      r"Basin SWE Storage ($\mathrm{km}^3$)"
+      if var_col == "volume_km3"
+      else "Mean Basin SWE Depth (mm)"
+  )
+  ax.set_ylabel(ylabel, fontsize=12, fontweight="bold")
+  ax.set_xlabel("Water Year Month", fontsize=12, fontweight="bold")
+  ax.set_title(
+      "Missouri Headwaters: Monthly SWE Storage Distributions (PRISM Baseline"
+      " vs. MACA Ensemble)",
+      fontsize=14,
+      fontweight="bold",
+      pad=12,
+  )
+  ax.grid(True, linestyle="--", alpha=0.35, axis="y")
+
+  ax.legend(
+      [bp_prism["boxes"][0], bp_maca["boxes"][0]],
+      [
+          "PRISM Baseline (1991–2020)",
+          "MACA Ensemble Mean (Mid-Century Projections)",
+      ],
+      loc="upper left",
+      framealpha=0.9,
+      fontsize=10,
+  )
+
+  plt.tight_layout()
+
+  if output_path:
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+
+  return fig
