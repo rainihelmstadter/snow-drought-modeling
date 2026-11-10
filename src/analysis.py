@@ -995,3 +995,209 @@ def plot_monthly_swe_boxplots(
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
 
   return fig
+
+# --------------------------------------------------------------------------------
+# Precip vs SWE scatter
+# from Gemini:
+
+def extract_winter_precip_swe_temp_df(
+    clim_ds: xr.Dataset,
+    swe_ds: xr.Dataset,
+    precip_var: str = "ppt",
+    tmax_var: str = "tmax",
+    tmin_var: str = "tmin",
+    swe_var: str = "swe_pred",
+    dataset_name: str = "PRISM Baseline",
+) -> pd.DataFrame:
+  """Extracts annual basin-averaged cumulative winter precipitation (Oct 1 to Apr 1),
+
+  mean winter temperature, and April 1st SWE.
+  """
+  # 1. Compute daily basin-mean spatial averages
+  p_daily = clim_ds[precip_var].mean(dim=["latitude", "longitude"], skipna=True)
+
+  # Calculate mean daily temperature if not explicitly present
+  if "tmean" in clim_ds.data_vars:
+    t_daily = clim_ds["tmean"].mean(
+        dim=["latitude", "longitude"], skipna=True
+    )
+  else:
+    t_daily = (
+        (clim_ds[tmax_var] + clim_ds[tmin_var]) / 2.0
+    ).mean(dim=["latitude", "longitude"], skipna=True)
+
+  swe_daily = swe_ds[swe_var].mean(dim=["latitude", "longitude"], skipna=True)
+
+  # 2. Assemble daily time series
+  df = pd.DataFrame({
+      "date": pd.to_datetime(clim_ds["date"].values),
+      "water_year": clim_ds["water_year"].values,
+      "precip_mm": p_daily.values,
+      "tmean_c": t_daily.values,
+      "swe_mm": swe_daily.values,
+  })
+
+  records = []
+  for wy, group in df.groupby("water_year"):
+    # Filter to winter accumulation window: Oct 1 through Apr 1
+    # Oct-Dec (months 10, 11, 12) + Jan-Mar (1, 2, 3) + Apr 1
+    winter_mask = (group["date"].dt.month.isin([10, 11, 12, 1, 2, 3])) | (
+        (group["date"].dt.month == 4) & (group["date"].dt.day == 1)
+    )
+    winter_grp = group[winter_mask]
+
+    if winter_grp.empty:
+      continue
+
+    # Cumulative winter precip (mm)
+    cum_precip = winter_grp["precip_mm"].sum()
+
+    # Mean winter temperature (°C)
+    mean_temp = winter_grp["tmean_c"].mean()
+
+    # April 1st SWE snapshot
+    apr1_row = group[
+        (group["date"].dt.month == 4) & (group["date"].dt.day == 1)
+    ]
+    apr1_swe = (
+        apr1_row["swe_mm"].values[0] if not apr1_row.empty else np.nan
+    )
+
+    records.append({
+        "water_year": int(wy),
+        "cum_winter_precip_mm": round(float(cum_precip), 1),
+        "mean_winter_temp_c": round(float(mean_temp), 2),
+        "apr1_swe_mm": round(float(apr1_swe), 1),
+        "dataset": dataset_name,
+    })
+
+  return pd.DataFrame(records)
+
+def plot_precip_swe_phase_space(
+    prism_df: pd.DataFrame,
+    maca_df: pd.DataFrame,
+    output_path: Optional[Union[str, Path]] = None,
+) -> plt.Figure:
+  """Plots cumulative winter precipitation vs.
+
+  April 1st SWE, colored by mean winter temperature, with a 1:1 100% snow
+  conversion line.
+  """
+  fig, ax = plt.subplots(figsize=(9, 8))
+
+  # Determine axis limits (shared so 1:1 line is truly 45 degrees)
+  max_val = max(
+      prism_df["cum_winter_precip_mm"].max(),
+      maca_df["cum_winter_precip_mm"].max(),
+      prism_df["apr1_swe_mm"].max(),
+      maca_df["apr1_swe_mm"].max(),
+  )
+  axis_limit = np.ceil(max_val / 50.0) * 50.0
+
+  # 1. Plot 1:1 physical upper ceiling line
+  ax.plot(
+      [0, axis_limit],
+      [0, axis_limit],
+      color="black",
+      linestyle="--",
+      linewidth=1.8,
+      alpha=0.8,
+      label=r"1:1 Ceiling ($SWE = P_{\mathrm{cum}}$, 100% Snow Conversion)",
+      zorder=2,
+  )
+
+  # 2. Color scale limits for temperature (centered around freezing, -6°C to +2°C)
+  vmin = min(
+      prism_df["mean_winter_temp_c"].min(), maca_df["mean_winter_temp_c"].min()
+  )
+  vmax = max(
+      prism_df["mean_winter_temp_c"].max(), maca_df["mean_winter_temp_c"].max()
+  )
+
+  # 3. Scatter: PRISM Baseline (circles)
+  sc_prism = ax.scatter(
+      prism_df["cum_winter_precip_mm"],
+      prism_df["apr1_swe_mm"],
+      c=prism_df["mean_winter_temp_c"],
+      cmap="coolwarm",
+      vmin=vmin,
+      vmax=vmax,
+      s=90,
+      marker="o",
+      edgecolor="black",
+      linewidth=1.2,
+      alpha=0.9,
+      label="PRISM Baseline (1991–2020)",
+      zorder=4,
+  )
+
+  # 4. Scatter: MACA Ensemble (triangles)
+  sc_maca = ax.scatter(
+      maca_df["cum_winter_precip_mm"],
+      maca_df["apr1_swe_mm"],
+      c=maca_df["mean_winter_temp_c"],
+      cmap="coolwarm",
+      vmin=vmin,
+      vmax=vmax,
+      s=110,
+      marker="^",
+      edgecolor="black",
+      linewidth=1.2,
+      alpha=0.9,
+      label="MACA Ensemble Mean (2045-2065)",
+      zorder=4,
+  )
+
+  # 5. Colorbar for temperature
+  cbar = fig.colorbar(sc_maca, ax=ax, orientation="vertical", pad=0.03)
+  cbar.set_label("Mean Winter Temp (°C)", fontsize=11, fontweight="bold")
+
+  # 6. Quadrant and Diagnostic Annotations
+  ax.annotate(
+      "Warm Snow Drought\n(High Precip, Low SWE)",
+      xy=(axis_limit * 0.65, axis_limit * 0.15),
+      fontsize=10,
+      fontweight="bold",
+      color="#b83b3b",
+      ha="center",
+      bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="#b83b3b", alpha=0.8),
+  )
+
+  ax.annotate(
+      "Dry Snow Drought\n(Low Precip, Low SWE)",
+      xy=(axis_limit * 0.20, axis_limit * 0.15),
+      fontsize=10,
+      fontweight="bold",
+      color="#555555",
+      ha="center",
+      bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="#777777", alpha=0.8),
+  )
+
+  # Ensure aspect ratio is equal so 1:1 is physically 45 degrees
+  ax.set_aspect("equal")
+  ax.set_xlim(0, axis_limit)
+  ax.set_ylim(0, axis_limit)
+
+  ax.set_xlabel(
+      "Cumulative Winter Precipitation (Oct 1 – Apr 1, mm)",
+      fontsize=11,
+      fontweight="bold",
+  )
+  ax.set_ylabel("April 1st Basin SWE (mm)", fontsize=11, fontweight="bold")
+  ax.set_title(
+      "Missouri Headwaters: Precipitation vs. SWE Storage Phase Space",
+      fontsize=13,
+      fontweight="bold",
+      pad=12,
+  )
+  ax.grid(True, linestyle="--", alpha=0.35)
+  ax.legend(loc="upper left", framealpha=0.9, fontsize=9)
+
+  plt.tight_layout()
+
+  if output_path:
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+
+  return fig
